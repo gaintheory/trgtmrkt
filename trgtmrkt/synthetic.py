@@ -94,3 +94,21 @@ def generate(n_per_lot: int = 300, seed: int = 7, today: date | None = None) -> 
             })
         out[lot] = pd.DataFrame(rows)
     return out
+
+
+def acs(seed: int = 11) -> pd.DataFrame:
+    """Fake ACS-shaped demographics for the demo ZIPs. Not real."""
+    from .analysis.catchment import DEMO_CENTROIDS
+    rng = random.Random(seed)
+    rows = []
+    for z in DEMO_CENTROIDS:
+        hh = rng.randint(4_000, 14_000)
+        under = int(hh * rng.uniform(0.25, 0.5))
+        rows.append({"zip5": z, "households": hh, "hh_under_50k": under,
+                     "pct_hh_under_50k": under / hh,
+                     "median_hh_income": rng.randint(38_000, 78_000),
+                     "renter_share": rng.uniform(0.25, 0.55),
+                     "no_vehicle_share": rng.uniform(0.03, 0.10),
+                     "poverty_rate": rng.uniform(0.07, 0.2),
+                     "unemployment_rate": rng.uniform(0.02, 0.06)})
+    return pd.DataFrame(rows)

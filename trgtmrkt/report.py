@@ -8,6 +8,7 @@ import pandas as pd
 from .analysis.bands import BAND_COLUMNS
 from .analysis.catchment import catchment, load_centroids
 from .analysis.default import bad_rate_by, survivorship_warning
+from .analysis.market import lot_summary, trade_area
 from .analysis.sales import sales_by
 
 
@@ -24,7 +25,8 @@ def _has_tabulate() -> bool:
 
 
 def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None = None,
-                 gazetteer: str | None = None) -> Path:
+                 gazetteer: str | None = None, acs: pd.DataFrame | None = None,
+                 radius_miles: float = 15.0) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     lines = ["# TRGT MRKT internal report", ""]
@@ -52,6 +54,16 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
         by_zip.to_csv(out / "catchment_by_zip.csv", index=False)
         summary.to_csv(out / "catchment_summary.csv", index=False)
         lines += ["## Customer catchment", "```", summary.to_string(index=False), "```", ""]
+        if acs is not None and not acs.empty:
+            area = trade_area(lots, load_centroids(gazetteer), acs, deals, radius_miles)
+            area.to_csv(out / "trade_area.csv", index=False)
+            lines += [f"## Trade area within {radius_miles:g} miles (ACS households under $50k)",
+                      "```", lot_summary(area).to_string(index=False), "```", "",
+                      "### Whitespace ZIPs (large target pool, below-median penetration)", "```",
+                      area[area["whitespace"]][["lot", "zip5", "miles", "hh_under_50k",
+                                                 "median_hh_income", "deals_all_lots",
+                                                 "penetration_per_1000"]].to_string(index=False),
+                      "```", ""]
 
     path = out / "report.md"
     path.write_text("\n".join(lines))

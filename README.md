@@ -41,10 +41,27 @@ If a header is not recognised, add its spelling to `ALIASES` in
 | Days to sell and gross by price / down % / age / mileage band | `analysis/sales.py` | Uses Frazer cost, profit and days-on-lot columns |
 | Bad-outcome rate by band, with 95% intervals | `analysis/default.py` | Bad = repossessed, charged off, or 60+ days past due. Warns on active-only data |
 | Customer catchment per lot | `analysis/catchment.py` | ZIP counts, distance to lot, overlap between lots |
+| Trade-area sizing and whitespace ZIPs (ACS + your deals) | `analysis/market.py` | Households under $50k are a proxy for the buyer pool, not a credit measure |
 | Weekly local listing snapshot and market velocity | `listings.py` | Dry-run by default, monthly call cap, days-on-market from first/last seen |
 
 Small book, so bands are coarse and every row carries `reliable` (n >= 20).
 Per-model cuts exist but are mostly anecdotes until you pool lots.
+
+## Free public data
+
+```bash
+export CENSUS_API_KEY=...   # free; ACS demographics
+export BLS_API_KEY=...      # free; the keyless daily limit runs out quickly
+export FRED_API_KEY=...     # free; macro series
+python -m trgtmrkt.cli refresh-public
+python -m trgtmrkt.cli report
+```
+
+`refresh-public` fetches the Census ZIP centroids, ACS demographics for every
+ZIP within 30 miles of your lots (including ZIPs where you sell nothing, which is
+where whitespace is), BLS county unemployment and FRED series. Sources without a
+key are skipped. The report then adds a trade-area table and a whitespace list.
+See `docs/free-data-sources.md` for what was verified live and what was not.
 
 ## Weekly listing snapshot
 

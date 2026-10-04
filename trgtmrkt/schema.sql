@@ -50,3 +50,17 @@ CREATE TABLE IF NOT EXISTS api_calls (
   params    TEXT,
   status    INTEGER
 );
+
+-- Free public data. ACS lives in acs_zcta (replaced wholesale on refresh).
+CREATE TABLE IF NOT EXISTS county_unemployment (
+  fips TEXT NOT NULL, month TEXT NOT NULL, rate REAL,
+  PRIMARY KEY (fips, month)
+);
+CREATE TABLE IF NOT EXISTS macro_series (
+  series TEXT NOT NULL, date TEXT NOT NULL, value REAL,
+  PRIMARY KEY (series, date)
+);
+CREATE TABLE IF NOT EXISTS vin_decode (
+  vin TEXT PRIMARY KEY, body_class TEXT, drive_type TEXT, fuel TEXT,
+  displacement_l TEXT, cylinders TEXT, error_code TEXT
+);
