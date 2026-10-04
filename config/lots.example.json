@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to config/lots.json (gitignored) and fill in real lot addresses. lat/lon from any geocoder; ZIP is used when lat/lon is absent.",
+  "lots": [
+    { "id": "smyrna",     "name": "Smyrna lot",     "zip": "37167", "lat": 36.0, "lon": -86.52 },
+    { "id": "la_vergne",  "name": "La Vergne lot",  "zip": "37086", "lat": 36.01, "lon": -86.58 },
+    { "id": "murfreesboro","name": "Murfreesboro lot","zip": "37130", "lat": 35.85, "lon": -86.39 }
+  ]
+}

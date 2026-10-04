@@ -1,0 +1,52 @@
+-- De-identified deals: one row per sale. No names, phones, street addresses,
+-- license numbers, employers, birthdays, credit scores or incomes.
+-- deal_id is a salted hash of the lot + Frazer stock number.
+CREATE TABLE IF NOT EXISTS deals (
+  deal_id          TEXT PRIMARY KEY,
+  lot              TEXT NOT NULL,
+  sale_date        TEXT,
+  year             INTEGER,
+  make             TEXT,
+  model            TEXT,
+  mileage_at_sale  INTEGER,
+  sale_price       REAL,
+  down_payment     REAL,
+  amount_financed  REAL,
+  apr              REAL,
+  term_payments    INTEGER,
+  payment_amount   REAL,
+  payment_frequency TEXT,
+  total_cost       REAL,
+  profit_on_sale   REAL,
+  days_on_lot      INTEGER,
+  -- active | paid_off | repossessed | charged_off | unknown
+  status           TEXT NOT NULL DEFAULT 'unknown',
+  days_past_due    INTEGER,
+  repo_date        TEXT,
+  zip5             TEXT
+);
+CREATE INDEX IF NOT EXISTS deals_lot_idx ON deals(lot);
+
+-- One row per listing sighting per weekly pull (competitor pricing, DOM).
+CREATE TABLE IF NOT EXISTS listing_snapshots (
+  snapshot_date TEXT NOT NULL,
+  vin           TEXT NOT NULL,
+  year          INTEGER,
+  make          TEXT,
+  model         TEXT,
+  price         REAL,
+  mileage       REAL,
+  dealer        TEXT,
+  zip           TEXT,
+  raw           TEXT,
+  PRIMARY KEY (snapshot_date, vin)
+);
+
+-- Every paid API call, so quotas are enforced rather than hoped for.
+CREATE TABLE IF NOT EXISTS api_calls (
+  called_at TEXT NOT NULL,
+  provider  TEXT NOT NULL,
+  endpoint  TEXT NOT NULL,
+  params    TEXT,
+  status    INTEGER
+);

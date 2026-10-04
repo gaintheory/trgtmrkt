@@ -1,0 +1,21 @@
+[project]
+name = "trgtmrkt"
+version = "0.1.0"
+description = "Buy-here-pay-here market research: de-identified dealer data, local listings, and analyses."
+requires-python = ">=3.10"
+dependencies = ["pandas>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+trgtmrkt = "trgtmrkt.cli:main"
+
+[tool.setuptools]
+packages = ["trgtmrkt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+trgtmrkt = ["schema.sql"]
