@@ -17,6 +17,27 @@ Each source is cached on disk (`data/reference/cache/`), keys are never written
 to the cache, and a failed or rate-limited response is never cached. A missing
 key skips that source with a message instead of failing the run.
 
+## FRED terms of use (read 2026-10-04)
+
+Terms: <https://fred.stlouisfed.org/docs/api/terms_of_use.html>, plus the St.
+Louis Fed Legal Notices (use "for research and informational purposes only").
+Handled in code:
+
+- **Required notice.** Any report showing FRED data ends with: "This product uses
+  the FRED® API but is not endorsed or certified by the Federal Reserve Bank of
+  St. Louis.", the terms link, and a citation per series. Added automatically
+  when macro data is present. Put the same notice on any app or page you build
+  around FRED data.
+- **Third-party copyright.** FRED marks copyrighted series by putting
+  "Copyright" in the series notes. `refresh` reads each series' notes first and
+  will not store (and deletes any earlier copy of) a flagged series; the CLI says
+  which. If the check cannot run, nothing is stored.
+
+Still on you: do not put "FRED" or "Federal Reserve" in a domain or hostname,
+do not use their logo, do not imply endorsement in sales material, and if
+dealers ever log in to an app that shows FRED data, link them to these terms and
+say in your own terms that they are bound by them. Not legal advice.
+
 ## Worth adding next (not built)
 
 | Source | Why it matters for BHPH | Notes |

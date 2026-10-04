@@ -76,6 +76,8 @@ allow this use.
 
 ## Rules of the road
 
+- FRED data carries a required notice and a copyright check; see
+  `docs/free-data-sources.md`. Do not name a domain or host after FRED or the Fed.
 - Never commit anything from `data/private/`, `data/out/` or any `.db`.
 - Outputs shared outside the owner's lots should be aggregates, with small cells
   suppressed.

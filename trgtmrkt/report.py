@@ -10,6 +10,7 @@ from .analysis.catchment import catchment, load_centroids
 from .analysis.default import bad_rate_by, survivorship_warning
 from .analysis.market import lot_summary, trade_area
 from .analysis.sales import sales_by
+from .sources.fred import FRED_NOTICE, TERMS_URL, citation
 
 
 def _md(df: pd.DataFrame) -> str:
@@ -26,7 +27,7 @@ def _has_tabulate() -> bool:
 
 def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None = None,
                  gazetteer: str | None = None, acs: pd.DataFrame | None = None,
-                 radius_miles: float = 15.0) -> Path:
+                 radius_miles: float = 15.0, macro: pd.DataFrame | None = None) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     lines = ["# TRGT MRKT internal report", ""]
@@ -64,6 +65,14 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
                                                  "median_hh_income", "deals_all_lots",
                                                  "penetration_per_1000"]].to_string(index=False),
                       "```", ""]
+
+    if macro is not None and not macro.empty:
+        lines += ["## Macro context (national)", "```",
+                  macro[["series", "title", "date", "value"]].to_string(index=False), "```", ""]
+        lines += ["Sources:", *[f"- {citation(r.series, r.title, r.source)}"
+                                for r in macro.itertuples()], ""]
+        # Required by the FRED API Terms of Use wherever FRED data is shown.
+        lines += ["---", FRED_NOTICE, f"FRED API Terms of Use: {TERMS_URL}", ""]
 
     path = out / "report.md"
     path.write_text("\n".join(lines))

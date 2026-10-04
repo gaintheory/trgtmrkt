@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS macro_series (
   series TEXT NOT NULL, date TEXT NOT NULL, value REAL,
   PRIMARY KEY (series, date)
 );
+-- FRED series metadata. copyrighted=1 means the notes contain "Copyright": the
+-- series belongs to a third party and is not stored without their permission.
+CREATE TABLE IF NOT EXISTS macro_series_meta (
+  series TEXT PRIMARY KEY, title TEXT, copyrighted INTEGER NOT NULL DEFAULT 0, checked_at TEXT
+);
 CREATE TABLE IF NOT EXISTS vin_decode (
   vin TEXT PRIMARY KEY, body_class TEXT, drive_type TEXT, fuel TEXT,
   displacement_l TEXT, cylinders TEXT, error_code TEXT

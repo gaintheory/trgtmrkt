@@ -126,3 +126,69 @@ def test_trade_area_flags_whitespace(deals):
     row = area2[area2["zip5"] == "37122"].iloc[0]
     assert row["deals_all_lots"] == 0 and bool(row["whitespace"])
     assert lot_summary(area2).loc[0, "target_households"] > 0
+
+
+# ---- FRED terms compliance -------------------------------------------------
+
+def _fred_fetch(notes_by_series):
+    """Fake FRED: /series returns notes, /series/observations returns two points."""
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        sid = url.split("series_id=")[1].split("&")[0]
+        if "/series/observations" in url:
+            return json.dumps({"observations": [{"date": "2026-09-01", "value": "1.5"},
+                                                {"date": "2026-10-01", "value": "2.5"}]}).encode()
+        return json.dumps({"seriess": [{"id": sid, "title": f"Title {sid}",
+                                        "notes": notes_by_series[sid]}]}).encode()
+    fetch.calls = calls
+    return fetch
+
+
+def test_fred_stores_clean_series_and_records_meta(tmp_path):
+    conn = db.connect(":memory:")
+    f = _fred_fetch({"GASREGW": "Weighted average based on sampling."})
+    r = fred.refresh(conn, {"GASREGW": ""}, key="k", fetch=f, cache_dir=tmp_path)
+    assert r.rows == 2 and r.copyrighted == []
+    meta = conn.execute("SELECT title, copyrighted FROM macro_series_meta").fetchone()
+    assert tuple(meta) == ("Title GASREGW", 0)
+
+
+def test_fred_refuses_to_store_copyrighted_series(tmp_path):
+    conn = db.connect(":memory:")
+    conn.execute("INSERT INTO macro_series VALUES ('OWNED', '2026-01-01', 9.9)")  # stale earlier pull
+    f = _fred_fetch({"OWNED": "Copyright, 2026, Some Vendor. Used with permission.",
+                     "OK": "Public data."})
+    r = fred.refresh(conn, {"OWNED": "", "OK": ""}, key="k", fetch=f, cache_dir=tmp_path)
+    assert r.copyrighted == ["OWNED"] and r.rows == 2  # only OK's two points
+    assert conn.execute("SELECT COUNT(*) FROM macro_series WHERE series='OWNED'").fetchone()[0] == 0
+    assert not any("series/observations" in u and "OWNED" in u for u in f.calls)  # never fetched
+    assert conn.execute("SELECT copyrighted FROM macro_series_meta WHERE series='OWNED'").fetchone()[0] == 1
+
+
+def test_fred_fails_closed_when_the_copyright_check_cannot_run(tmp_path):
+    conn = db.connect(":memory:")
+
+    def fetch(url):
+        if "/series/observations" in url:
+            return json.dumps({"observations": [{"date": "2026-10-01", "value": "1"}]}).encode()
+        return json.dumps({"error_code": 400, "error_message": "bad key"}).encode()
+    with pytest.raises(Exception):
+        fred.refresh(conn, {"GASREGW": ""}, key="k", fetch=fetch, cache_dir=tmp_path)
+    assert conn.execute("SELECT COUNT(*) FROM macro_series").fetchone()[0] == 0
+
+
+def test_report_carries_fred_notice_only_when_fred_data_is_shown(deals, tmp_path):
+    from trgtmrkt import report
+    plain = report.build_report(deals, tmp_path / "a").read_text()
+    assert fred.FRED_NOTICE not in plain
+
+    conn = db.connect(":memory:")
+    fred.refresh(conn, {"GASREGW": ""}, key="k", fetch=_fred_fetch({"GASREGW": "ok"}),
+                 cache_dir=tmp_path / "c")
+    shown = report.build_report(deals, tmp_path / "b", macro=fred.latest(conn)).read_text()
+    assert fred.FRED_NOTICE in shown and fred.TERMS_URL in shown
+    assert "retrieved from FRED, Federal Reserve Bank of St. Louis" in shown
+    assert "https://fred.stlouisfed.org/series/GASREGW" in shown
+    assert "2026-10-01" in shown and "2.5" in shown  # latest point, not the older one

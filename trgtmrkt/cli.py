@@ -40,7 +40,15 @@ def _refresh_public(conn, args) -> None:
 
     steps.append(("Census ACS", _acs))
     steps.append(("BLS county unemployment", lambda: f"{bls.refresh(conn)} rows"))
-    steps.append(("FRED macro series", lambda: f"{fred.refresh(conn)} rows"))
+    def _fred():
+        r = fred.refresh(conn)
+        msg = f"{r.rows} rows"
+        if r.copyrighted:
+            msg += (f"; NOT STORED (third-party copyright, needs owner's permission): "
+                    f"{', '.join(r.copyrighted)}")
+        return msg
+
+    steps.append(("FRED macro series", _fred))
     for name, fn in steps:
         try:
             print(f"ok    {name}: {fn()}")
@@ -105,7 +113,9 @@ def main(argv: list[str] | None = None) -> int:
         deals = ingest.load_deals(conn)
         gaz = args.gazetteer or (str(gazetteer.DEFAULT_PATH) if gazetteer.DEFAULT_PATH.exists() else None)
         acs = pd.read_sql_query("SELECT * FROM acs_zcta", conn) if _has_table(conn, "acs_zcta") else None
-        path = report.build_report(deals, args.out, report.load_lots(args.lots), gaz, acs)
+        macro = fred.latest(conn) if _has_table(conn, "macro_series") else None
+        path = report.build_report(deals, args.out, report.load_lots(args.lots), gaz, acs,
+                                   macro=macro)
         print(f"report: {path}")
     elif args.cmd == "refresh-public":
         _refresh_public(conn, args)
