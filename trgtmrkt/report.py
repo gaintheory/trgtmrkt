@@ -11,6 +11,7 @@ from .analysis.default import bad_rate_by, survivorship_warning
 from .analysis.inventory import aged, by_vendor
 from .analysis.market import lot_summary, trade_area
 from .analysis.sales import retail_scope, sales_by
+from .analysis.survival import data_notes, months_on_book
 from .sources.fred import FRED_NOTICE, TERMS_URL, citation
 
 
@@ -60,6 +61,27 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
         b = bad_rate_by(deals, band, min_age_days=seasoning_days)
         b.to_csv(out / f"bad_rate_by_{band}.csv", index=False)
         lines += [f"## Bad-outcome rate by {band}", "```", b.to_string(index=False), "```", ""]
+    mob_notes = data_notes(deals)
+    lines += ["## Cumulative bad-outcome rate by months on book (repossession or write-off)",
+              f"Each note counts only for the time actually observed, so recent sales do not "
+              f"flatter the result. {mob_notes['notes']} financed notes, {mob_notes['events']} with a "
+              f"dated repossession or write-off, longest observed {mob_notes['max_months_observed']} months. "
+              f"{mob_notes['late_not_repossessed']} more are 60+ days late but not repossessed; their "
+              f"date of going bad is unknown, so they are not on the curve (they are a leading "
+              f"indicator, not an outcome). Trust a row only when `at_risk` is large.", ""]
+    if mob_notes["undated_bad"]:
+        lines += [f"Warning: {mob_notes['undated_bad']} repossessed/charged-off notes have no date "
+                  "and were left off the curve.", ""]
+    mob = months_on_book(deals)
+    mob.to_csv(out / "months_on_book.csv", index=False)
+    lines += ["```", mob.to_string(index=False), "```", ""]
+    for cut in ("lot", "down_pct_band", "price_band"):
+        if cut == "lot" and deals["lot"].nunique() < 2:
+            continue
+        g = months_on_book(deals, by=cut, milestones=(6, 12))
+        if not g.empty:
+            g.to_csv(out / f"months_on_book_by_{cut}.csv", index=False)
+            lines += [f"### By {cut} (6 and 12 months)", "```", g.to_string(index=False), "```", ""]
     by_lot = bad_rate_by(deals, "lot", min_age_days=seasoning_days)
     by_lot.to_csv(out / "bad_rate_by_lot.csv", index=False)
     lines += ["## Bad-outcome rate by lot", "```", by_lot.to_string(index=False), "```", ""]

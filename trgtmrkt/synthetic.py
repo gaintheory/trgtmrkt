@@ -50,13 +50,16 @@ def generate(n_per_lot: int = 300, seed: int = 7, today: date | None = None) -> 
 
             risk = 0.10 + 0.012 * age + miles / 1_500_000 - 0.7 * (down_pct - 0.14)
             risk = min(0.6, max(0.02, risk))
+            sale_date = today - timedelta(days=rng.randint(30, 900))
             r = rng.random()
             repo_out = ""
             status = "Active"
             dpd = ""
             if r < risk * 0.55:
                 status = "Repossessed"
-                repo_out = (today - timedelta(days=rng.randint(10, 400))).strftime("%m/%d/%Y")
+                max_off = max(1, (today - sale_date).days)
+                repo_out = (sale_date + timedelta(days=rng.randint(min(45, max_off), max_off))
+                            ).strftime("%m/%d/%Y")
             elif r < risk:
                 status = "Active"
                 dpd = str(rng.randint(60, 140))  # seriously delinquent, not yet repo'd
@@ -65,7 +68,6 @@ def generate(n_per_lot: int = 300, seed: int = 7, today: date | None = None) -> 
             elif rng.random() < 0.25:
                 dpd = str(rng.randint(1, 45))
 
-            sale_date = today - timedelta(days=rng.randint(30, 900))
             days_on_lot = max(2, int(rng.gauss(18 + (price - 3_500) / 250, 9)))
             cost = round(price * rng.uniform(0.45, 0.62))
             home = rng.choice(zips)

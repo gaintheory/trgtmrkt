@@ -40,6 +40,7 @@ If a header is not recognised, add its spelling to `ALIASES` in
 |---|---|---|
 | Days to sell and gross by price / down % / age / mileage band | `analysis/sales.py` | Uses Frazer cost, profit and days-on-lot columns |
 | Bad-outcome rate by band, with 95% intervals | `analysis/default.py` | Bad = repossessed, charged off, or 60+ days past due. Warns on active-only data |
+| Cumulative bad rate by months on book (Kaplan-Meier) | `analysis/survival.py` | Repo or write-off with a known date; each note counts only for the time actually observed, so young notes do not flatter the rate. Read a row only when `at_risk` is large |
 | Customer catchment per lot | `analysis/catchment.py` | ZIP counts, distance to lot, overlap between lots |
 | Trade-area sizing and whitespace ZIPs (ACS + your deals) | `analysis/market.py` | Households under $50k are a proxy for the buyer pool, not a credit measure |
 | Weekly local listing snapshot and market velocity | `listings.py` | Dry-run by default, monthly call cap, days-on-market from first/last seen |

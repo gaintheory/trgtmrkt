@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS deals (
   vehicle_source   TEXT,   -- Auction / Repossession / Trade / Company ...
   purchase_date    TEXT,
   original_cost    REAL,
-  added_costs      REAL
+  added_costs      REAL,
+  write_off_date   TEXT,
+  last_payment_date TEXT
 );
 CREATE INDEX IF NOT EXISTS deals_lot_idx ON deals(lot);
 

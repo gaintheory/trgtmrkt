@@ -12,6 +12,7 @@ DEAL_COLUMNS = [
     "payment_amount", "payment_frequency", "total_cost", "profit_on_sale",
     "days_on_lot", "status", "days_past_due", "repo_date", "zip5",
     "sale_type", "vehicle_source", "purchase_date", "original_cost", "added_costs",
+    "write_off_date", "last_payment_date",
 ]
 
 

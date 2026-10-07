@@ -50,6 +50,7 @@ ALIASES: dict[str, list[str]] = {
     "original_cost": ["Original Cost"],
     "added_costs": ["Added Costs"],
     "write_off_date": ["Write Off Date"],
+    "last_payment_date": ["Last Pay Date", "Last Payment Date"],
 }
 
 # Never read, listed so a test can prove the output never carries them.
@@ -223,6 +224,8 @@ def deidentify(raw: pd.DataFrame, lot: str, salt: str,
     out["purchase_date"] = col("purchase_date").map(_date)
     out["original_cost"] = col("original_cost").map(_money)
     out["added_costs"] = col("added_costs").map(_money)
+    out["write_off_date"] = col("write_off_date").map(_date)
+    out["last_payment_date"] = col("last_payment_date").map(_date)
     tmp = pd.DataFrame({
         "_sale_type": col("sale_type"),
         "_write_off": col("write_off_date").map(_date),
