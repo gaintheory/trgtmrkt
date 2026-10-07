@@ -1,0 +1,17 @@
+# Dealer data never goes in git. Real exports, the database and generated
+# reports stay on your machine.
+data/private/
+data/out/
+data/*.db
+data/reference/*
+!data/reference/.gitkeep
+*.sqlite
+*.db
+config/lots.json
+.env
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
