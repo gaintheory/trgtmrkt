@@ -13,8 +13,8 @@ Not an event: a note that is 60+ days late today but not yet repossessed. Its
          counted separately (`late_not_repossessed`) as a leading indicator.
 
 Only financed notes are included; cash and wholesale sales cannot default.
-`as_of` defaults to the newest sale date, roughly the export date. Pass the real
-export date when you know it.
+`as_of` defaults to the recorded export date (ingest --as-of), else the newest sale
+date, which is only a rough stand-in.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import math
 import pandas as pd
 
 from .bands import MIN_N, add_bands
-from .default import financed_only
+from .default import financed_only, resolve_as_of
 
 DAYS_PER_MONTH = 30.4375
 MILESTONES = (3, 6, 9, 12, 18, 24, 36)
@@ -34,7 +34,7 @@ def observations(deals: pd.DataFrame, as_of: str | None = None) -> pd.DataFrame:
     """One row per financed note: months observed and whether it ended in an event."""
     d = financed_only(deals).copy()
     sale = pd.to_datetime(d["sale_date"], errors="coerce")
-    ref = pd.to_datetime(as_of) if as_of else pd.to_datetime(deals["sale_date"], errors="coerce").max()
+    ref = resolve_as_of(deals, as_of)
     repo = pd.to_datetime(d["repo_date"], errors="coerce")
     wo = pd.to_datetime(d["write_off_date"], errors="coerce") if "write_off_date" in d else pd.NaT
     last = pd.to_datetime(d["last_payment_date"], errors="coerce") if "last_payment_date" in d else pd.NaT

@@ -22,7 +22,8 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
     """Older local databases predate some columns; CREATE IF NOT EXISTS will not add them."""
     want = {"deals": {"sale_type": "TEXT", "vehicle_source": "TEXT", "purchase_date": "TEXT",
                       "original_cost": "REAL", "added_costs": "REAL",
-                      "write_off_date": "TEXT", "last_payment_date": "TEXT"}}
+                      "write_off_date": "TEXT", "last_payment_date": "TEXT",
+                      "export_date": "TEXT"}}
     for table, cols in want.items():
         have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
         for name, typ in cols.items():

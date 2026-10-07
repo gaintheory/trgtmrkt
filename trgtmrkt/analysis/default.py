@@ -9,6 +9,16 @@ from .bands import MIN_N, add_bands, is_bad_outcome, wilson
 NON_NOTE = ["cash", "wholesale", "outside_financing"]  # can never default on a lot-held note
 
 
+def resolve_as_of(deals: pd.DataFrame, as_of: str | None = None) -> pd.Timestamp:
+    """End of the observation window: explicit value, else the newest recorded
+    export date, else (a rougher guess) the newest sale date."""
+    if as_of:
+        return pd.to_datetime(as_of)
+    if "export_date" in deals and deals["export_date"].notna().any():
+        return pd.to_datetime(deals["export_date"]).max()
+    return pd.to_datetime(deals["sale_date"], errors="coerce").max()
+
+
 def financed_only(deals: pd.DataFrame) -> pd.DataFrame:
     return deals[~deals["status"].isin(NON_NOTE)]
 
@@ -16,10 +26,9 @@ def financed_only(deals: pd.DataFrame) -> pd.DataFrame:
 def seasoned(deals: pd.DataFrame, min_age_days: int, as_of: str | None = None) -> pd.DataFrame:
     """Keep deals old enough to have had time to go bad. Without this, last
     month's sales dilute every rate (right-censoring). `as_of` defaults to the
-    newest sale in the data, i.e. roughly the export date."""
+    recorded export date (else the newest sale)."""
     d = pd.to_datetime(deals["sale_date"], errors="coerce")
-    ref = pd.to_datetime(as_of) if as_of else d.max()
-    return deals[(ref - d).dt.days >= min_age_days]
+    return deals[(resolve_as_of(deals, as_of) - d).dt.days >= min_age_days]
 
 
 def survivorship_warning(deals: pd.DataFrame) -> str | None:

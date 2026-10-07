@@ -22,7 +22,9 @@ the pipeline works, not anything about your lots.
 1. In Frazer, export each lot **with column headers and with closed accounts**
    (paid off, repossessed, charged off). An active-only export hides every bad
    outcome and the report will say so. Save under `data/private/` (gitignored).
-2. `python -m trgtmrkt.cli ingest data/private/smyrna.csv --lot smyrna`
+2. `python -m trgtmrkt.cli ingest data/private/smyrna.csv --lot smyrna --as-of 2026-10-06`
+   (`--as-of` is the date you ran the export; months-on-book needs it. For the
+   inventory export use `ingest-inventory ... --as-of`.)
    (repeat per lot). Names, phones, street addresses, birthdays, license numbers,
    employers, incomes, credit data and VINs are never read. ZIP5 is kept for
    catchment. Deal IDs are salted hashes; the salt lives in `data/private/.salt`.

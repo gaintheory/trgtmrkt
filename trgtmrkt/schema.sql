@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS deals (
   original_cost    REAL,
   added_costs      REAL,
   write_off_date   TEXT,
-  last_payment_date TEXT
+  last_payment_date TEXT,
+  export_date      TEXT    -- date the Frazer export was run: the end of every note's observation window
 );
 CREATE INDEX IF NOT EXISTS deals_lot_idx ON deals(lot);
 

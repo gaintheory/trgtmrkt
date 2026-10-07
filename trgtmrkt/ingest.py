@@ -12,14 +12,21 @@ DEAL_COLUMNS = [
     "payment_amount", "payment_frequency", "total_cost", "profit_on_sale",
     "days_on_lot", "status", "days_past_due", "repo_date", "zip5",
     "sale_type", "vehicle_source", "purchase_date", "original_cost", "added_costs",
-    "write_off_date", "last_payment_date",
+    "write_off_date", "last_payment_date", "export_date",
 ]
 
 
 def ingest_frazer(conn: sqlite3.Connection, raw: pd.DataFrame, lot: str,
-                  salt: str | None = None, default_status: str = "active") -> int:
-    """De-identify one lot's export and upsert it. Returns rows written."""
-    clean = deidentify(raw, lot, salt or load_salt(), default_status)[DEAL_COLUMNS]
+                  salt: str | None = None, default_status: str = "active",
+                  export_date: str | None = None) -> int:
+    """De-identify one lot's export and upsert it. Returns rows written.
+
+    `export_date` (YYYY-MM-DD) is when the export was run. Without it, analyses
+    fall back to the newest sale date, which understates how long notes have
+    been observed."""
+    clean = deidentify(raw, lot, salt or load_salt(), default_status)
+    clean["export_date"] = export_date
+    clean = clean[DEAL_COLUMNS]
     clean = clean.astype(object).where(clean.notna(), None)
     placeholders = ",".join("?" * len(DEAL_COLUMNS))
     conn.executemany(

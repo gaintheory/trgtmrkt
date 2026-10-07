@@ -61,11 +61,13 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
         b = bad_rate_by(deals, band, min_age_days=seasoning_days)
         b.to_csv(out / f"bad_rate_by_{band}.csv", index=False)
         lines += [f"## Bad-outcome rate by {band}", "```", b.to_string(index=False), "```", ""]
+    from .analysis.default import resolve_as_of
+    as_of = resolve_as_of(deals)
     mob_notes = data_notes(deals)
     lines += ["## Cumulative bad-outcome rate by months on book (repossession or write-off)",
               f"Each note counts only for the time actually observed, so recent sales do not "
               f"flatter the result. {mob_notes['notes']} financed notes, {mob_notes['events']} with a "
-              f"dated repossession or write-off, longest observed {mob_notes['max_months_observed']} months. "
+              f"dated repossession or write-off, observed through {as_of.date()}, longest observed {mob_notes['max_months_observed']} months. "
               f"{mob_notes['late_not_repossessed']} more are 60+ days late but not repossessed; their "
               f"date of going bad is unknown, so they are not on the curve (they are a leading "
               f"indicator, not an outcome). Trust a row only when `at_risk` is large.", ""]

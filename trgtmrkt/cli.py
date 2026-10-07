@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("ingest", help="de-identify a Frazer CSV export and load it")
     s.add_argument("csv")
     s.add_argument("--lot", required=True)
+    s.add_argument("--as-of", default=None, help="date the export was run, YYYY-MM-DD (strongly recommended)")
     s.add_argument("--default-status", default="active",
                    help="status for rows with no status column (an M-8 export is active-only)")
 
@@ -114,7 +115,10 @@ def main(argv: list[str] | None = None) -> int:
         raw, issues = frazer_csv.read_frazer(args.csv)
         for line in issues:
             print(f"warning: {line}")
-        n = ingest.ingest_frazer(conn, raw, args.lot, default_status=args.default_status)
+        if not args.as_of:
+            print("warning: no --as-of export date; months-on-book will assume the newest sale date")
+        n = ingest.ingest_frazer(conn, raw, args.lot, default_status=args.default_status,
+                                 export_date=args.as_of)
         print(f"{n} de-identified deals loaded for {args.lot} ({len(issues)} rows skipped)")
     elif args.cmd == "ingest-inventory":
         raw, issues = frazer_csv.read_frazer(args.csv)

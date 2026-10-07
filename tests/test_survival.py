@@ -64,3 +64,24 @@ def test_no_milestone_beyond_the_longest_observation_and_group_cuts_work(deals):
 def test_planted_down_payment_signal_shows_up_on_the_curve(deals):
     g = months_on_book(deals, by="down_pct_band", milestones=(12,)).set_index("group")
     assert g.loc["20%+", "cum_bad"] < g.loc["<5%", "cum_bad"]
+
+
+def test_recorded_export_date_extends_observation_beyond_the_newest_sale():
+    from trgtmrkt.analysis.default import resolve_as_of
+    d = notes([{"sale_date": "2025-01-01"}])
+    assert resolve_as_of(d) == pd.Timestamp("2025-01-01")            # fallback: newest sale
+    d["export_date"] = "2025-04-11"
+    assert resolve_as_of(d) == pd.Timestamp("2025-04-11")            # recorded export date wins
+    assert resolve_as_of(d, "2025-06-01") == pd.Timestamp("2025-06-01")  # explicit beats both
+    months = observations(d).loc[0, "months"]
+    assert months == pytest.approx(100 / 30.4375)
+
+
+def test_ingest_stores_export_date_and_cli_warns_without_it(conn, raw_exports, tmp_path, capsys):
+    from trgtmrkt import cli, ingest
+    ingest.ingest_frazer(conn, raw_exports["smyrna"], "smyrna", salt="test-salt", export_date="2026-10-06")
+    assert conn.execute("SELECT DISTINCT export_date FROM deals WHERE lot='smyrna'").fetchall()[0][0] == "2026-10-06"
+    p = tmp_path / "x.csv"
+    raw_exports["smyrna"].to_csv(p, index=False)
+    cli.main(["--db", str(tmp_path / "t.db"), "ingest", str(p), "--lot", "smyrna"])
+    assert "--as-of" in capsys.readouterr().out
