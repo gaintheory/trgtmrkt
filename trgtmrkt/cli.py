@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import db, ingest, listings, report, synthetic
+from . import db, frazer_csv, ingest, listings, report, synthetic
 from .sources import bls, census, fred, gazetteer, nhtsa
 
 
@@ -70,6 +70,11 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--default-status", default="active",
                    help="status for rows with no status column (an M-8 export is active-only)")
 
+    s = sub.add_parser("ingest-inventory", help="load a Frazer unsold-inventory export")
+    s.add_argument("csv")
+    s.add_argument("--lot", required=True)
+    s.add_argument("--as-of", required=True, help="date the export was run, YYYY-MM-DD")
+
     s = sub.add_parser("report", help="write analyses to data/out")
     s.add_argument("--out", default="data/out")
     s.add_argument("--lots", default="config/lots.json")
@@ -106,16 +111,25 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = db.connect(args.db)
     if args.cmd == "ingest":
-        raw = pd.read_csv(args.csv, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+        raw, issues = frazer_csv.read_frazer(args.csv)
+        for line in issues:
+            print(f"warning: {line}")
         n = ingest.ingest_frazer(conn, raw, args.lot, default_status=args.default_status)
-        print(f"{n} de-identified deals loaded for {args.lot}")
+        print(f"{n} de-identified deals loaded for {args.lot} ({len(issues)} rows skipped)")
+    elif args.cmd == "ingest-inventory":
+        raw, issues = frazer_csv.read_frazer(args.csv)
+        for line in issues:
+            print(f"warning: {line}")
+        n = ingest.ingest_inventory(conn, raw, args.lot, args.as_of)
+        print(f"{n} inventory units loaded for {args.lot} ({len(issues)} rows skipped)")
     elif args.cmd == "report":
         deals = ingest.load_deals(conn)
         gaz = args.gazetteer or (str(gazetteer.DEFAULT_PATH) if gazetteer.DEFAULT_PATH.exists() else None)
         acs = pd.read_sql_query("SELECT * FROM acs_zcta", conn) if _has_table(conn, "acs_zcta") else None
         macro = fred.latest(conn) if _has_table(conn, "macro_series") else None
+        inv = pd.read_sql_query("SELECT * FROM inventory", conn)
         path = report.build_report(deals, args.out, report.load_lots(args.lots), gaz, acs,
-                                   macro=macro)
+                                   macro=macro, inventory=inv if len(inv) else None)
         print(f"report: {path}")
     elif args.cmd == "refresh-public":
         _refresh_public(conn, args)

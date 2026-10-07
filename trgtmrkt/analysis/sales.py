@@ -6,6 +6,18 @@ import pandas as pd
 from .bands import MIN_N, add_bands
 
 
+def retail_scope(deals: pd.DataFrame) -> pd.DataFrame:
+    """Deals where days-on-lot and gross mean something comparable.
+
+    Excluded: wholesale deals, and any car that came from a repossession. In a
+    real export 36 of 50 wholesale deals were repossessed cars sold at once, with
+    0 days on lot and 0 profit booked, which makes every band look faster and
+    thinner than retail really is."""
+    keep = (deals["sale_type"].fillna("").str.lower() != "wholesale") & (
+        deals["vehicle_source"].fillna("").str.lower().str[:6] != "reposs")
+    return deals[keep]
+
+
 def sales_by(deals: pd.DataFrame, by: str | list[str]) -> pd.DataFrame:
     d = add_bands(deals)
     g = d.groupby(by, observed=True)

@@ -6,7 +6,24 @@ import pandas as pd
 from .bands import MIN_N, add_bands, is_bad_outcome, wilson
 
 
+NON_NOTE = ["cash", "wholesale", "outside_financing"]  # can never default on a lot-held note
+
+
+def financed_only(deals: pd.DataFrame) -> pd.DataFrame:
+    return deals[~deals["status"].isin(NON_NOTE)]
+
+
+def seasoned(deals: pd.DataFrame, min_age_days: int, as_of: str | None = None) -> pd.DataFrame:
+    """Keep deals old enough to have had time to go bad. Without this, last
+    month's sales dilute every rate (right-censoring). `as_of` defaults to the
+    newest sale in the data, i.e. roughly the export date."""
+    d = pd.to_datetime(deals["sale_date"], errors="coerce")
+    ref = pd.to_datetime(as_of) if as_of else d.max()
+    return deals[(ref - d).dt.days >= min_age_days]
+
+
 def survivorship_warning(deals: pd.DataFrame) -> str | None:
+    deals = financed_only(deals)
     """An active-only export hides repos and paid-off accounts, which makes
     default look rarer than it is. Say so loudly rather than report a clean
     number."""
@@ -22,11 +39,16 @@ def survivorship_warning(deals: pd.DataFrame) -> str | None:
     return None
 
 
-def bad_rate_by(deals: pd.DataFrame, by: str | list[str]) -> pd.DataFrame:
+def bad_rate_by(deals: pd.DataFrame, by: str | list[str], min_age_days: int = 0,
+                as_of: str | None = None) -> pd.DataFrame:
+    """Bad-outcome rate over financed deals only, optionally only seasoned ones."""
+    deals = financed_only(deals)
+    if min_age_days:
+        deals = seasoned(deals, min_age_days, as_of)
     d = add_bands(deals)
     d["bad"] = is_bad_outcome(d)
     g = d.groupby(by, observed=True)["bad"].agg(n="count", bad="sum").reset_index()
-    cis = g.apply(lambda r: wilson(int(r["bad"]), int(r["n"])), axis=1)
+    cis = [wilson(int(b), int(n)) for b, n in zip(g["bad"], g["n"])]  # empty-safe
     g["bad_rate"] = g["bad"] / g["n"]
     g["ci_low"] = [c[0] for c in cis]
     g["ci_high"] = [c[1] for c in cis]

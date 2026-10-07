@@ -19,11 +19,16 @@ CREATE TABLE IF NOT EXISTS deals (
   total_cost       REAL,
   profit_on_sale   REAL,
   days_on_lot      INTEGER,
-  -- active | paid_off | repossessed | charged_off | unknown
+  -- active | paid_off | repossessed | charged_off | cash | wholesale | outside_financing | unknown
   status           TEXT NOT NULL DEFAULT 'unknown',
   days_past_due    INTEGER,
   repo_date        TEXT,
-  zip5             TEXT
+  zip5             TEXT,
+  sale_type        TEXT,   -- BHPH / Cash / Wholesale / Outside Financing (as Frazer spells it)
+  vehicle_source   TEXT,   -- Auction / Repossession / Trade / Company ...
+  purchase_date    TEXT,
+  original_cost    REAL,
+  added_costs      REAL
 );
 CREATE INDEX IF NOT EXISTS deals_lot_idx ON deals(lot);
 
@@ -68,4 +73,15 @@ CREATE TABLE IF NOT EXISTS macro_series_meta (
 CREATE TABLE IF NOT EXISTS vin_decode (
   vin TEXT PRIMARY KEY, body_class TEXT, drive_type TEXT, fuel TEXT,
   displacement_l TEXT, cylinders TEXT, error_code TEXT
+);
+
+-- Current unsold stock (Frazer inventory export). Vendor is a business name.
+CREATE TABLE IF NOT EXISTS inventory (
+  unit_id        TEXT PRIMARY KEY,
+  lot            TEXT NOT NULL,
+  year           INTEGER, make TEXT, model TEXT, mileage INTEGER,
+  original_cost  REAL, added_costs REAL, retail_price REAL,
+  purchase_date  TEXT, ready_date TEXT,
+  vendor         TEXT,
+  snapshot_date  TEXT
 );

@@ -21,9 +21,10 @@ import pandas as pd
 ALIASES: dict[str, list[str]] = {
     "stock_no": ["Stock #", "Stock No", "Stock"],
     "sale_date": ["Sale Date", "Date of Sale"],
-    "year": ["Year", "Vehicle Year"],
-    "make": ["Make", "Vehicle Make"],
-    "model": ["Model", "Vehicle Model"],
+    # Real exports carry both blocks; the "Vehicle ..." block has the 4-digit year.
+    "year": ["Vehicle Year", "Year"],
+    "make": ["Vehicle Make", "Make"],
+    "model": ["Vehicle Model", "Model"],
     "vehicle": ["Vehicle", "Year Make Model", "Vehicle Description"],
     "mileage_at_sale": ["Mileage At Sale"],
     "sale_price": ["Sales Price", "Sale Price"],
@@ -43,6 +44,12 @@ ALIASES: dict[str, list[str]] = {
     "repo_date_out": ["Repo Date Out"],
     "repo_date_redeemed": ["Repo Date Redeemed"],
     "zip": ["Zip", "Zip Code"],
+    "sale_type": ["Type of Sale", "Sale Type"],
+    "vehicle_source": ["Vehicle Source"],
+    "purchase_date": ["Purchase Date"],
+    "original_cost": ["Original Cost"],
+    "added_costs": ["Added Costs"],
+    "write_off_date": ["Write Off Date"],
 }
 
 # Never read, listed so a test can prove the output never carries them.
@@ -94,6 +101,16 @@ def _date(value) -> str | None:
     return None if pd.isna(parsed) else parsed.strftime("%Y-%m-%d")
 
 
+def _year(value) -> int | None:
+    """Model year. Accepts 2016 or 16; 0/blank means unknown."""
+    y = _int(value)
+    if not y:
+        return None
+    if y < 100:
+        y += 2000 if y <= 30 else 1900
+    return y if 1950 <= y <= 2035 else None
+
+
 def _zip5(value) -> str | None:
     m = re.match(r"\s*(\d{5})", str(value or ""))
     return m.group(1) if m else None
@@ -127,7 +144,22 @@ def deal_id(lot: str, stock_no: str, salt: str) -> str:
     return hashlib.sha256(f"{salt}|{lot}|{stock_no}".encode()).hexdigest()[:16]
 
 
+def sale_class(sale_type) -> str | None:
+    """Non-BHPH sales can never default: label them so analyses can exclude them."""
+    t = _norm(sale_type) if pd.notna(sale_type) else ""
+    if "wholesale" in t:
+        return "wholesale"
+    if t == "cash":
+        return "cash"
+    if "outside" in t:
+        return "outside_financing"
+    return None
+
+
 def derive_status(row: pd.Series, has_status_col: bool, default: str) -> str:
+    cls = sale_class(row.get("_sale_type"))
+    if cls:
+        return cls
     if has_status_col:
         raw = _norm(row.get("_status")) if pd.notna(row.get("_status")) else ""
         if "repo" in raw:
@@ -141,6 +173,11 @@ def derive_status(row: pd.Series, has_status_col: bool, default: str) -> str:
     # pandas turns a missing date into NaN, which is truthy: test with notna.
     if pd.notna(row.get("_repo_out")) and pd.isna(row.get("_repo_redeemed")):
         return "repossessed"
+    if pd.notna(row.get("_write_off")):
+        return "charged_off"
+    # Financed but nothing owed any more (and not repo'd or written off): paid off.
+    if pd.notna(row.get("_balance")) and row["_balance"] == 0 and (row.get("_financed") or 0) > 0:
+        return "paid_off"
     return default
 
 
@@ -161,7 +198,7 @@ def deidentify(raw: pd.DataFrame, lot: str, salt: str,
     out["sale_date"] = col("sale_date").map(_date)
 
     if pick["year"] and pick["make"] and pick["model"]:
-        out["year"] = col("year").map(_int)
+        out["year"] = col("year").map(_year)
         out["make"] = col("make").astype("string").str.strip().str.title()
         out["model"] = col("model").astype("string").str.strip()
     else:
@@ -181,7 +218,16 @@ def deidentify(raw: pd.DataFrame, lot: str, salt: str,
     # Frazer leaves "Days past Due" blank for "nothing overdue"; keep that as 0.
     out["days_past_due"] = col("days_past_due").map(_int).fillna(0).astype(int)
 
+    out["sale_type"] = col("sale_type").astype("string").str.strip()
+    out["vehicle_source"] = col("vehicle_source").astype("string").str.strip().str.title()
+    out["purchase_date"] = col("purchase_date").map(_date)
+    out["original_cost"] = col("original_cost").map(_money)
+    out["added_costs"] = col("added_costs").map(_money)
     tmp = pd.DataFrame({
+        "_sale_type": col("sale_type"),
+        "_write_off": col("write_off_date").map(_date),
+        "_balance": col("total_balance").map(_money),
+        "_financed": out["amount_financed"],
         "_status": col("account_status"),
         "_repo_out": col("repo_date_out").map(_date),
         "_repo_redeemed": col("repo_date_redeemed").map(_date),

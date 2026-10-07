@@ -8,8 +8,9 @@ import pandas as pd
 from .analysis.bands import BAND_COLUMNS
 from .analysis.catchment import catchment, load_centroids
 from .analysis.default import bad_rate_by, survivorship_warning
+from .analysis.inventory import aged, by_vendor
 from .analysis.market import lot_summary, trade_area
-from .analysis.sales import sales_by
+from .analysis.sales import retail_scope, sales_by
 from .sources.fred import FRED_NOTICE, TERMS_URL, citation
 
 
@@ -27,7 +28,8 @@ def _has_tabulate() -> bool:
 
 def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None = None,
                  gazetteer: str | None = None, acs: pd.DataFrame | None = None,
-                 radius_miles: float = 15.0, macro: pd.DataFrame | None = None) -> Path:
+                 radius_miles: float = 15.0, macro: pd.DataFrame | None = None,
+                 inventory: pd.DataFrame | None = None, seasoning_days: int = 180) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     lines = ["# TRGT MRKT internal report", ""]
@@ -37,15 +39,28 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
     lines.append(f"Deals: {len(deals)} across lots: {', '.join(sorted(deals['lot'].unique()))}")
     lines.append("Rows flagged `reliable=False` have fewer than 20 deals; treat as anecdotes.\n")
 
+    retail = retail_scope(deals)
+    lines += [f"Days-to-sell and gross bands cover {len(retail)} of {len(deals)} deals: wholesale deals and "
+              "repossession-sourced cars are excluded (see the sale_type and vehicle_source tables).", ""]
     for band in BAND_COLUMNS:
-        s = sales_by(deals, band)
+        s = sales_by(retail, band)
         s.to_csv(out / f"sales_by_{band}.csv", index=False)
         lines += [f"## Days to sell and gross by {band}", "```", s.to_string(index=False), "```", ""]
-    for band in BAND_COLUMNS:
-        b = bad_rate_by(deals, band)
+    for cut in ("sale_type", "vehicle_source"):
+        if deals[cut].notna().any():
+            s = sales_by(deals, cut)
+            s.to_csv(out / f"sales_by_{cut}.csv", index=False)
+            lines += [f"## Days to sell and gross by {cut}", "```", s.to_string(index=False), "```", ""]
+    lines += [f"Bad-outcome tables below cover financed (BHPH) deals only and, to avoid "
+              f"diluting rates with accounts too young to have gone bad, only deals at least "
+              f"{seasoning_days} days old at the newest sale in the data.", ""]
+    for band in BAND_COLUMNS + ["vehicle_source"]:
+        if band not in BAND_COLUMNS and not deals[band].notna().any():
+            continue
+        b = bad_rate_by(deals, band, min_age_days=seasoning_days)
         b.to_csv(out / f"bad_rate_by_{band}.csv", index=False)
         lines += [f"## Bad-outcome rate by {band}", "```", b.to_string(index=False), "```", ""]
-    by_lot = bad_rate_by(deals, "lot")
+    by_lot = bad_rate_by(deals, "lot", min_age_days=seasoning_days)
     by_lot.to_csv(out / "bad_rate_by_lot.csv", index=False)
     lines += ["## Bad-outcome rate by lot", "```", by_lot.to_string(index=False), "```", ""]
 
@@ -65,6 +80,13 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
                                                  "median_hh_income", "deals_all_lots",
                                                  "penetration_per_1000"]].to_string(index=False),
                       "```", ""]
+
+    if inventory is not None and not inventory.empty:
+        as_of = str(inventory["snapshot_date"].max())
+        v = by_vendor(inventory, as_of)
+        v.to_csv(out / "inventory_by_vendor.csv", index=False)
+        lines += [f"## Unsold inventory by vendor (as of {as_of})", "```", v.to_string(index=False), "```", "",
+                  "### Units owned 45+ days", "```", aged(inventory, as_of).to_string(index=False), "```", ""]
 
     if macro is not None and not macro.empty:
         lines += ["## Macro context (national)", "```",
