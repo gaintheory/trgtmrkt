@@ -89,13 +89,21 @@ def build_report(deals: pd.DataFrame, out_dir: str | Path, lots_cfg: dict | None
     lines += ["## Bad-outcome rate by lot", "```", by_lot.to_string(index=False), "```", ""]
 
     if lots_cfg:
-        lots = {l["id"]: (l["lat"], l["lon"]) for l in lots_cfg["lots"]}
-        by_zip, summary = catchment(deals, lots, load_centroids(gazetteer))
+        centroids = load_centroids(gazetteer)
+        lots = {}
+        for l in lots_cfg["lots"]:
+            if "lat" in l and "lon" in l:
+                lots[l["id"]] = (l["lat"], l["lon"])
+            elif l.get("zip") in centroids:  # no coordinates given: use the ZIP's centre
+                lots[l["id"]] = centroids[l["zip"]]
+            else:
+                raise ValueError(f"lot {l['id']!r} needs lat/lon, or a ZIP found in the gazetteer")
+        by_zip, summary = catchment(deals, lots, centroids)
         by_zip.to_csv(out / "catchment_by_zip.csv", index=False)
         summary.to_csv(out / "catchment_summary.csv", index=False)
         lines += ["## Customer catchment", "```", summary.to_string(index=False), "```", ""]
         if acs is not None and not acs.empty:
-            area = trade_area(lots, load_centroids(gazetteer), acs, deals, radius_miles)
+            area = trade_area(lots, centroids, acs, deals, radius_miles)
             area.to_csv(out / "trade_area.csv", index=False)
             lines += [f"## Trade area within {radius_miles:g} miles (ACS households under $50k)",
                       "```", lot_summary(area).to_string(index=False), "```", "",

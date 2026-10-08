@@ -22,6 +22,8 @@ KEEP = ["households", "hh_under_50k", "pct_hh_under_50k", "median_hh_income",
 def trade_area(lots: dict[str, tuple[float, float]], centroids: dict[str, tuple[float, float]],
                acs: pd.DataFrame, deals: pd.DataFrame, radius_miles: float = 15.0) -> pd.DataFrame:
     acs = acs.set_index("zip5")
+    if "lot" in deals.columns:  # the pooled pseudo-lot would double every count
+        deals = deals[deals["lot"] != "combined"]
     all_lot_deals = deals.dropna(subset=["zip5"]).groupby("zip5").size()
     own_deals = deals.dropna(subset=["zip5"]).groupby(["lot", "zip5"]).size()
     rows = []
